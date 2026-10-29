@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/34114348/README.md)
 # Cloud-Computing-Project# Cloud-Computing-Project
 
 **Đề tài 26:** Triển khai ứng dụng trên Kubernetes với tự phục hồi, co giãn và cập nhật không gián đoạn
