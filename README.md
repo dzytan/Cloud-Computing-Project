@@ -377,11 +377,6 @@ ngoài phạm vi bắt buộc của đề), cần ghi ngân sách dự kiến v�
 | Ứng dụng & Tự động hóa | Trần Hồng Sơn | App + `/metrics`, `/fail-ready`, Dockerfile (non-root, 3 image tag), HPA, `chaos-pod-delete.sh`, `rollout-fail.sh` |
 | Kiểm thử, Quan sát & Báo cáo | Nguyễn Ngọc Sum | Dashboard Prometheus/Grafana, các script k6, `collect-metrics.py`, `plot-results.py`, `test-plan.md`, báo cáo, video demo |
 
-**Thứ tự phụ thuộc để tránh nghẽn cuối kỳ:**
-
-1. **Tuần đầu:** Sơn hoàn thành `/metrics` trước, vì dashboard của Sum phụ thuộc vào nó. Tân dựng cụm và `base/` song song.
-2. **Giữa kỳ:** Sum chốt `test-plan.md` (tiêu chí đạt) và viết các script k6 ngay khi app chạy được, không đợi đến cuối.
-3. **Cuối kỳ:** chạy toàn bộ kịch bản, thu dữ liệu vào `data/results/`, viết báo cáo dựa trên số liệu thật.
 
 ---
 
