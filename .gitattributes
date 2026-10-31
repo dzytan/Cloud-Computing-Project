@@ -1,0 +1,25 @@
+# Chuẩn hóa line-ending: lưu LF trong repo, không tự động đổi sang CRLF
+* text=auto eol=lf
+
+# Các file script shell bắt buộc phải là LF
+*.sh   text eol=lf
+*.js   text eol=lf
+*.py   text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+
+# File Windows đặc thù giữ CRLF
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# File nhị phân không xử lý line-ending
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.pdf  binary
+*.zip  binary
+

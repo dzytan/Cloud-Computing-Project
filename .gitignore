@@ -218,3 +218,24 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Kubernetes local secrets
+k8s/secret.yaml
+*.secret.yaml
+
+# Python virtual environment
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Editor / OS
+.vscode/*
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
+
+# Ket qua do luong sinh ra tu dong
+data/results/*.json
+docs/results/*.png
+
