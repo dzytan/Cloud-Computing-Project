@@ -6,11 +6,11 @@ export const errorRate = new Rate('errors');
 
 export const options = {
   stages: [
-    { duration: '30s', target: 10 },  // Khởi động nhẹ
-    { duration: '1m',  target: 80 },  // Tăng vọt tải CPU (kích hoạt HPA scale up)
-    { duration: '2m',  target: 80 },  // Giữ tải cao để quan sát số lượng pod tăng
-    { duration: '30s', target: 5 },   // Hạ tải
-    { duration: '2m',  target: 5 },   // Giữ tải thấp để quan sát HPA scale down
+    { duration: '30s', target: 10 },   // Khởi động nhẹ
+    { duration: '1m',  target: 150 },  // Tăng vọt tải CPU (spike lên 150 VUs – kích hoạt HPA scale up)
+    { duration: '2m',  target: 200 },  // Giữ tải cao ~200 VUs để quan sát số lượng pod tăng
+    { duration: '30s', target: 5 },    // Hạ tải nhanh
+    { duration: '2m',  target: 5 },    // Giữ tải thấp để quan sát HPA scale down
   ],
   thresholds: {
     errors: ['rate<0.05'],
@@ -35,4 +35,3 @@ export default function () {
   errorRate.add(!success);
   sleep(0.05);
 }
-

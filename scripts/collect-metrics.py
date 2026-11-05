@@ -27,8 +27,11 @@ QUERIES = {
     "request_rate": 'sum(rate(http_requests_total[1m]))',
     "latency_p95": 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le))',
     "error_rate_5xx": 'sum(rate(http_requests_total{status=~"5.."}[1m])) or vector(0)',
+    "availability_pct": '(1 - ((sum(rate(http_requests_total{status=~"5.."}[1m])) or vector(0)) / (sum(rate(http_requests_total[1m])) > 0))) * 100',
     "pod_restarts": 'sum(kube_pod_container_status_restarts_total{pod=~"selfhealing-demo.*"}) or vector(0)',
-    "replicas_available": 'kube_deployment_status_replicas_available{deployment="selfhealing-demo"} or vector(0)'
+    "replicas_available": 'kube_deployment_status_replicas_available{deployment="selfhealing-demo"} or vector(0)',
+    "cpu_utilization_pct": 'sum(rate(container_cpu_usage_seconds_total{container="app"}[1m])) / sum(kube_pod_container_resource_requests{container="app", resource="cpu"}) * 100',
+    "memory_usage_bytes": 'sum(container_memory_working_set_bytes{container="app"})'
 }
 
 def query_prometheus(query: str):
@@ -64,7 +67,15 @@ def main():
     for name, query in QUERIES.items():
         val = query_prometheus(query)
         metrics["data"][name] = val
-        print(f"  - {name}: {val}")
+        # Hiển thị giá trị dễ đọc
+        if name == "availability_pct" and val is not None:
+            print(f"  - {name}: {val:.2f}%")
+        elif name == "latency_p95" and val is not None:
+            print(f"  - {name}: {val*1000:.1f} ms")
+        elif name == "memory_usage_bytes" and val is not None:
+            print(f"  - {name}: {val/1024/1024:.1f} MiB")
+        else:
+            print(f"  - {name}: {val}")
 
     output_path = args.output or f"data/results/{args.scenario}_{int(datetime.now().timestamp())}.json"
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -75,4 +86,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
