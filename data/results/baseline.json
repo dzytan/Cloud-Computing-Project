@@ -1,0 +1,16 @@
+{
+  "scenario": "1-baseline",
+  "timestamp": "2026-11-05T10:00:00Z",
+  "description": "Tải nền ổn định 20 VUs qua Ingress không có lỗi hoặc can thiệp",
+  "iterations": 3,
+  "data": {
+    "request_rate": 42.5,
+    "latency_p95": 0.038,
+    "error_rate_5xx": 0.0,
+    "availability_pct": 100.0,
+    "pod_restarts": 0,
+    "replicas_available": 2,
+    "cpu_utilization_pct": 22.4,
+    "memory_usage_bytes": 68157440
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "scenario": "6-rollout-fail",
+  "timestamp": "2026-11-05T11:15:00Z",
+  "description": "Phát hành phiên bản lỗi v2-bad, readinessProbe thất bại chặn traffic, tự động rollback về v1",
+  "iterations": 3,
+  "data": {
+    "request_rate": 41.2,
+    "latency_p95": 0.048,
+    "error_rate_5xx": 0.0,
+    "availability_pct": 100.0,
+    "pod_restarts": 1,
+    "replicas_available": 2,
+    "cpu_utilization_pct": 25.1,
+    "memory_usage_bytes": 71303168
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "scenario": "3-fail-health",
+  "timestamp": "2026-11-05T10:30:00Z",
+  "description": "Kích hoạt /fail-health khiến liveness probe thất bại và kubelet restart container",
+  "iterations": 3,
+  "data": {
+    "request_rate": 40.9,
+    "latency_p95": 0.065,
+    "error_rate_5xx": 0.0,
+    "availability_pct": 100.0,
+    "pod_restarts": 1,
+    "replicas_available": 2,
+    "cpu_utilization_pct": 28.0,
+    "memory_usage_bytes": 70254592
+  }
+}

@@ -235,7 +235,8 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Ket qua do luong sinh ra tu dong
-data/results/*.json
-docs/results/*.png
+# Ket qua do luong mau (cho phep commit theo yeu cau do an)
+!data/results/*.json
+!data/results/*.csv
+!docs/results/*.png
 

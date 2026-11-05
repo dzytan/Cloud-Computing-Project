@@ -1,0 +1,16 @@
+{
+  "scenario": "5-rollout-v2",
+  "timestamp": "2026-11-05T11:00:00Z",
+  "description": "Cập nhật RollingUpdate sang v2 thành công với zero downtime (maxUnavailable:0)",
+  "iterations": 3,
+  "data": {
+    "request_rate": 43.1,
+    "latency_p95": 0.045,
+    "error_rate_5xx": 0.0,
+    "availability_pct": 100.0,
+    "pod_restarts": 1,
+    "replicas_available": 2,
+    "cpu_utilization_pct": 24.3,
+    "memory_usage_bytes": 71303168
+  }
+}
