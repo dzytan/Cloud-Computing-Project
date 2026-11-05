@@ -1,15 +1,24 @@
+# ===== Stage 1: Builder – cài dependencies vào virtual env =====
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+COPY requirements.txt .
+RUN python -m venv /build/venv && \
+    /build/venv/bin/pip install --no-cache-dir -r requirements.txt
+
+
+# ===== Stage 2: Runtime – image nhẹ, chỉ chứa app + venv =====
 FROM python:3.11-slim
 
-# Thiết lập thư mục làm việc
 WORKDIR /app
 
 # Tạo non-root user (appuser UID=10001) để tuân thủ securityContext
 RUN groupadd -g 10001 appgroup && \
     useradd -u 10001 -g appgroup -s /bin/sh -m appuser
 
-# Cài đặt dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy virtual env từ builder stage (không kéo theo pip cache / build tools)
+COPY --from=builder /build/venv /app/venv
 
 # Sao chép mã nguồn ứng dụng
 COPY main.py .
@@ -21,6 +30,7 @@ ARG BROKEN=false
 ENV APP_VERSION=${APP_VERSION}
 ENV BROKEN=${BROKEN}
 ENV PORT=8000
+ENV PATH="/app/venv/bin:$PATH"
 
 # Chuyển sang non-root user
 USER 10001
@@ -28,4 +38,3 @@ USER 10001
 EXPOSE 8000
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-

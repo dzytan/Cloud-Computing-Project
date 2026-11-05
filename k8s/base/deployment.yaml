@@ -4,6 +4,10 @@ metadata:
   name: selfhealing-demo
   labels:
     app: selfhealing-demo
+    cost-center: "engineering-lab"
+    environment: "production"
+    project: "self-healing-k8s"
+    owner: "team26-tan-son-sum"
 spec:
   replicas: 2
   strategy:
