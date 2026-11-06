@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubernetes Self-Healing Dashboard — Đề tài 26</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+    <!-- HEADER -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo-icon">☸</div>
+            <div>
+                <h1>Kubernetes Self-Healing Dashboard</h1>
+                <p class="subtitle">Đề tài 26 — Tự phục hồi, Co giãn & Cập nhật không gián đoạn</p>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="connection-badge" id="connectionBadge">
+                <span class="dot"></span>
+                <span id="connectionText">Đang kết nối...</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-grid">
+        <!-- LEFT: Cluster Overview -->
+        <section class="panel cluster-panel">
+            <h2 class="panel-title">
+                <span class="panel-icon">🖥️</span>
+                Trạng thái Cụm Kubernetes
+            </h2>
+
+            <!-- Nodes -->
+            <div class="sub-section">
+                <h3>Nodes</h3>
+                <div id="nodesGrid" class="nodes-grid">
+                    <div class="node-card skeleton"><div class="sk-line"></div></div>
+                    <div class="node-card skeleton"><div class="sk-line"></div></div>
+                    <div class="node-card skeleton"><div class="sk-line"></div></div>
+                </div>
+            </div>
+
+            <!-- Pods -->
+            <div class="sub-section">
+                <h3>Pods <span class="pod-count" id="podCount">0</span></h3>
+                <div id="podsContainer" class="pods-container">
+                    <div class="pod-card skeleton"><div class="sk-line"></div></div>
+                    <div class="pod-card skeleton"><div class="sk-line"></div></div>
+                </div>
+            </div>
+
+            <!-- HPA -->
+            <div class="sub-section">
+                <h3>HPA Autoscaler</h3>
+                <div class="hpa-bar-wrapper">
+                    <div class="hpa-labels">
+                        <span>Min: <strong id="hpaMin">2</strong></span>
+                        <span>Hiện tại: <strong id="hpaCurrent">2</strong> / <strong id="hpaDesired">2</strong></span>
+                        <span>Max: <strong id="hpaMax">10</strong></span>
+                    </div>
+                    <div class="hpa-bar">
+                        <div class="hpa-bar-fill" id="hpaBarFill" style="width:20%"></div>
+                    </div>
+                    <div class="hpa-cpu">
+                        CPU: <strong id="hpaCpu">—</strong>% / Ngưỡng: 50%
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT: Scenarios + Logs -->
+        <section class="panel scenarios-panel">
+            <h2 class="panel-title">
+                <span class="panel-icon">⚡</span>
+                Kịch bản Thực nghiệm
+            </h2>
+
+            <div class="scenario-buttons">
+                <button class="scenario-btn btn-red" data-scenario="delete-pod" onclick="runScenario('delete-pod')">
+                    <span class="btn-num">2</span>
+                    <div>
+                        <strong>Xóa Pod</strong>
+                        <small>Tự phục hồi</small>
+                    </div>
+                </button>
+                <button class="scenario-btn btn-yellow" data-scenario="fail-health" onclick="runScenario('fail-health')">
+                    <span class="btn-num">3</span>
+                    <div>
+                        <strong>Lỗi Health</strong>
+                        <small>Liveness restart</small>
+                    </div>
+                </button>
+                <button class="scenario-btn btn-purple" data-scenario="drain-node" onclick="runScenario('drain-node')">
+                    <span class="btn-num">4</span>
+                    <div>
+                        <strong>Drain Node</strong>
+                        <small>PDB bảo vệ</small>
+                    </div>
+                </button>
+                <button class="scenario-btn btn-blue" data-scenario="rollout-v2" onclick="runScenario('rollout-v2')">
+                    <span class="btn-num">5A</span>
+                    <div>
+                        <strong>Update v2</strong>
+                        <small>Zero-downtime</small>
+                    </div>
+                </button>
+                <button class="scenario-btn btn-orange" data-scenario="rollout-bad" onclick="runScenario('rollout-bad')">
+                    <span class="btn-num">5B</span>
+                    <div>
+                        <strong>v2-bad + Rollback</strong>
+                        <small>Chặn bản lỗi</small>
+                    </div>
+                </button>
+                <button class="scenario-btn btn-green" data-scenario="hpa" onclick="runScenario('hpa')">
+                    <span class="btn-num">6</span>
+                    <div>
+                        <strong>HPA Spike</strong>
+                        <small>Co giãn tự động</small>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Scenario Status -->
+            <div class="scenario-status" id="scenarioStatus">
+                <span class="status-idle">Sẵn sàng — Chọn kịch bản để bắt đầu</span>
+            </div>
+
+            <!-- Live Logs -->
+            <h2 class="panel-title" style="margin-top:1.2rem">
+                <span class="panel-icon">📋</span>
+                Nhật ký Thực thi (Live)
+            </h2>
+            <div class="log-container" id="logContainer">
+                <div class="log-empty">Nhật ký sẽ xuất hiện khi bạn chạy kịch bản...</div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <span>Đồ án Điện Toán Đám Mây — Đề tài 26 — Trần Duy Tân · Trần Hồng Sơn · Nguyễn Ngọc Sum</span>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
