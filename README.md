@@ -107,102 +107,44 @@ Cloud-Computing-Project/
 │   ├── steady.js               # tải nền ổn định 20 VUs (baseline, xóa pod, drain, rollout)
 │   └── hpa-spike.js            # tải tăng đột biến CPU để kích hoạt HPA
 ├── scripts/
+│   ├── setup.ps1               # dựng toàn bộ cụm + deploy (chạy 1 lần)
+│   ├── teardown.ps1            # xóa cụm kind
 │   ├── chaos-pod-delete.sh     # xóa pod / drain node
 │   ├── rollout-fail.sh         # phát hành bản lỗi + rollback
 │   ├── collect-metrics.py      # xuất số liệu thô từ Prometheus
-│   ├── plot-results.py         # vẽ biểu đồ từ data/results/
-│   ├── cleanup.sh              # script dọn dẹp cụm (Linux/macOS)
-│   └── cleanup.ps1             # script dọn dẹp cụm (Windows PowerShell)
+│   └── plot-results.py         # vẽ biểu đồ từ data/results/
+├── dashboard/                  # Dashboard web trực quan cho demo
+│   ├── server.py               # Flask + SocketIO backend
+│   ├── requirements.txt
+│   ├── templates/index.html
+│   └── static/                 # style.css, app.js
 ├── data/results/               # số liệu đo thô dạng JSON và CSV
-│   ├── baseline.json
-│   ├── delete-pod.json
-│   ├── fail-health.json
-│   ├── drain-node.json
-│   ├── rollout-v2.json
-│   ├── rollout-fail.json
-│   ├── hpa-spike.json
-│   └── summary_metrics.csv
 ├── docs/
-│   ├── test-plan.md            # bảng kiểm thử + tiêu chí đạt chuẩn khoa học
-│   ├── finops-cost-analysis.md # báo cáo FinOps & tối ưu chi phí Cloud theo Chương 5
-│   ├── demo-script.md          # kịch bản phân vai quay video demo 10 phút
-│   ├── reports/                # báo cáo đồ án (Word docx)
-│   └── results/                # 5 ảnh biểu đồ kết quả (latency, error, avail, restarts, replicas)
+│   ├── test-plan.md            # bảng kiểm thử + tiêu chí đạt
+│   ├── finops-cost-analysis.md # báo cáo FinOps & tối ưu chi phí Cloud
+│   ├── reports/                # báo cáo đồ án
+│   └── results/                # biểu đồ kết quả
 └── README.md
 ```
 
 ## Run guide
 
-**Yêu cầu:** Docker, `kubectl`, `kind`, `helm`, `k6`, Python 3.10+. Máy nên có tối thiểu 4 CPU / 8 GB RAM.
+**Yêu cầu:** Docker Desktop, `kubectl`, `kind`, `helm`, `k6`, Python 3.10+.
 
-**1. Dựng cụm**
+**Cách 1 — Script tự động (khuyên dùng, Windows PowerShell):**
 
-```bash
+```powershell
 git clone https://github.com/dzytan/Cloud-Computing-Project.git
 cd Cloud-Computing-Project
-kind create cluster --name selfhealing-demo --config k8s/kind-config.yaml
+.\scripts\setup.ps1          # dựng cụm + cài hạ tầng + deploy ứng dụng
+python dashboard/server.py   # mở Dashboard web tại http://localhost:5000
 ```
 
-`kind-config.yaml` cần label `ingress-ready=true` trên control-plane và `extraPortMappings` 80/443,
-nếu không Ingress sẽ không lên. Dùng k3d/minikube được nhưng phải có ít nhất 2 worker để thử drain node.
+Dọn dẹp khi xong: `.\scripts\teardown.ps1`
 
-**2. Cài Metrics Server và Ingress** (ghim phiên bản, không dùng `latest`/`main`)
+**Cách 2 — Từng bước thủ công (Linux / macOS / WSL):**
 
-```bash
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.7.2/components.yaml
-kubectl patch deployment metrics-server -n kube-system --type='json' \
-  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
-
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.1/deploy/static/provider/kind/deploy.yaml
-kubectl wait --namespace ingress-nginx --for=condition=ready pod \
-  --selector=app.kubernetes.io/component=controller --timeout=120s
-```
-
-**3. Cài Prometheus/Grafana**
-
-```bash
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm install monitoring prometheus-community/kube-prometheus-stack \
-  -n monitoring --create-namespace -f monitoring/prometheus-values.yaml
-```
-
-**4. Build 3 image và nạp vào cụm** (`v1`, `v2` tốt, `v2-bad` cố ý lỗi để thử rollback)
-
-```bash
-cd app
-docker build -t selfhealing-demo:v1 .
-docker build -t selfhealing-demo:v2 --build-arg APP_VERSION=v2 .
-docker build -t selfhealing-demo:v2-bad --build-arg APP_VERSION=v2-bad --build-arg BROKEN=true .
-cd ..
-for t in v1 v2 v2-bad; do kind load docker-image selfhealing-demo:$t --name selfhealing-demo; done
-```
-
-**5. Tạo Secret thật rồi mới apply manifest**
-
-```bash
-kubectl create secret generic selfhealing-demo-secret \
-  --from-literal=API_KEY=<giá-trị-thật> --dry-run=client -o yaml | kubectl apply -f -
-
-kubectl apply -f k8s/base/
-kubectl apply -f monitoring/servicemonitor.yaml
-kubectl get pods -o wide        # các replica phải nằm ở các node khác nhau
-```
-
-**6. Kiểm tra qua Ingress**
-
-```bash
-curl -H "Host: selfhealing.local" http://localhost/version
-kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80    # Grafana
-```
-
-**7. Dọn dẹp**
-
-```bash
-kind delete cluster --name selfhealing-demo
-```
-
-> Các hành vi nêu trong README là **kỳ vọng**. Chỉ ghi là kết quả trong báo cáo sau khi đã chạy thật
-> và có số liệu/log trong `data/results` và `docs/results`.
+Xem chi tiết trong [`docs/test-plan.md`](docs/test-plan.md).
 
 ## Kịch bản thử nghiệm
 
@@ -264,13 +206,11 @@ Ngưỡng dưới đây là đề xuất, nhóm chốt lại trong [`docs/test-p
 - Chi tiết bảng phân tích ước tính chi phí trên AWS EKS, chiến lược Spot Instances, Rightsizing CPU/RAM, Cost Allocation Tags và Unit Economics xem tại:
   👉 **[`docs/finops-cost-analysis.md`](docs/finops-cost-analysis.md)**
 
-## Video Demo & Kịch bản Thuyết trình
+## Demo & Kết quả
 
-- Thời lượng chuẩn: 10 phút (video) / 15-20 phút (vấn đáp trực tiếp).
-- Kịch bản chi tiết từng phút, phân công rõ vai trò SV1, SV2, SV3 và danh mục lệnh checklist xem tại:
-  👉 **[`docs/demo-script.md`](docs/demo-script.md)**
-- 5 biểu đồ phân tích kết quả đo lường đã được tự động xuất bản tại:
-  👉 **[`docs/results/`](docs/results/)**
+- **Dashboard web:** `python dashboard/server.py` → `http://localhost:5000` — bấm nút chạy từng kịch bản, quan sát pods/HPA realtime.
+- **Grafana:** `kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80` → `http://localhost:3000` (admin / prom-operator).
+- 5 biểu đồ kết quả đo lường tại [`docs/results/`](docs/results/).
 
 ## Phân công Nhóm
 
