@@ -199,18 +199,16 @@ Ngưỡng dưới đây là đề xuất, nhóm chốt lại trong [`docs/test-p
 - Giới hạn còn lại: Ingress/Grafana chạy HTTP, chưa có TLS/auth (chỉ dùng trong lab cục bộ); image chưa quét lỗ hổng;
   Secret mới chỉ mã hóa base64.
 
-## Quản trị Chi phí (FinOps) & Rightsizing
+## Chi phí
 
-- **Môi trường thử nghiệm:** Toàn bộ demo chạy trên cụm kind cục bộ, **không phát sinh chi phí cloud**.
-- **Mô hình kinh tế đám mây (Public Cloud):** Nhóm đã thực hiện nghiên cứu chuyên sâu về **FinOps & Resource Rightsizing** theo đúng tinh thần **Chương 5 (Mục 5.8: Slide 96 - 102)**.
-- Chi tiết bảng phân tích ước tính chi phí trên AWS EKS, chiến lược Spot Instances, Rightsizing CPU/RAM, Cost Allocation Tags và Unit Economics xem tại:
-  👉 **[`docs/finops-cost-analysis.md`](docs/finops-cost-analysis.md)**
+Toàn bộ demo chạy trên cụm kind cục bộ, không phát sinh chi phí cloud.
+Ước tính chi phí triển khai trên AWS EKS và phân tích rightsizing tài nguyên xem tại [`docs/finops-cost-analysis.md`](docs/finops-cost-analysis.md).
 
-## Demo & Kết quả
+## Demo
 
 - **Dashboard web:** `python dashboard/server.py` → `http://localhost:5000` — bấm nút chạy từng kịch bản, quan sát pods/HPA realtime.
 - **Grafana:** `kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80` → `http://localhost:3000` (admin / prom-operator).
-- 5 biểu đồ kết quả đo lường tại [`docs/results/`](docs/results/).
+- Biểu đồ kết quả sau khi chạy thực nghiệm sẽ được xuất vào `docs/results/`.
 
 ## Phân công Nhóm
 
