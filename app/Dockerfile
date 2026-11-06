@@ -1,11 +1,11 @@
 # ===== Stage 1: Builder – cài dependencies vào virtual env =====
 FROM python:3.11-slim AS builder
 
-WORKDIR /build
+WORKDIR /app
 
 COPY requirements.txt .
-RUN python -m venv /build/venv && \
-    /build/venv/bin/pip install --no-cache-dir -r requirements.txt
+RUN python -m venv /app/venv && \
+    /app/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 
 # ===== Stage 2: Runtime – image nhẹ, chỉ chứa app + venv =====
@@ -17,8 +17,8 @@ WORKDIR /app
 RUN groupadd -g 10001 appgroup && \
     useradd -u 10001 -g appgroup -s /bin/sh -m appuser
 
-# Copy virtual env từ builder stage (không kéo theo pip cache / build tools)
-COPY --from=builder /build/venv /app/venv
+# Copy virtual env từ builder stage
+COPY --from=builder /app/venv /app/venv
 
 # Sao chép mã nguồn ứng dụng
 COPY main.py .
@@ -37,4 +37,4 @@ USER 10001
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
