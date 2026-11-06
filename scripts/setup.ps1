@@ -4,16 +4,18 @@
 #  Yeu cau:    Docker Desktop dang chay, da cai kind / helm / k6
 # ======================================================================
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 Set-Location $PSScriptRoot\..
 
 $CLUSTER = "selfhealing-demo"
 
 Write-Host "`n[1/7] Tao cum Kind (1 control-plane + 2 worker)..." -ForegroundColor Cyan
-if (kind get clusters 2>$null | Select-String $CLUSTER) {
+$existing = kind get clusters 2>&1 | Out-String
+if ($existing -match $CLUSTER) {
     Write-Host "  Cum $CLUSTER da ton tai, bo qua." -ForegroundColor DarkGray
 } else {
     kind create cluster --name $CLUSTER --config k8s/kind-config.yaml
+    if ($LASTEXITCODE -ne 0) { Write-Host "  LOI: Khong tao duoc cum!" -ForegroundColor Red; exit 1 }
 }
 
 Write-Host "`n[2/7] Cai Ingress Nginx Controller..." -ForegroundColor Cyan
@@ -28,7 +30,8 @@ kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{\"op\
 Write-Host "`n[4/7] Cai Prometheus va Grafana..." -ForegroundColor Cyan
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>$null
 helm repo update 2>$null
-if (helm list -n monitoring 2>$null | Select-String "monitoring") {
+$helmList = helm list -n monitoring 2>&1 | Out-String
+if ($helmList -match "monitoring") {
     Write-Host "  Prometheus stack da cai, bo qua." -ForegroundColor DarkGray
 } else {
     helm install monitoring prometheus-community/kube-prometheus-stack -n monitoring --create-namespace -f monitoring/prometheus-values.yaml
