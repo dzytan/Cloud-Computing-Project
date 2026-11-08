@@ -44,8 +44,8 @@ flowchart TB
 
     subgraph ObservabilityLayer["Tầng Giám sát & Quan sát (Observability)"]
         SM["ServiceMonitor"]
-        Prom["Prometheus Server<br/>(Scrape /metrics mỗi 10s)"]
-        Graf["Grafana Dashboard<br/>(selfhealing-dashboard.json)"]
+        Prom["Prometheus Server<br/>(Scrape /metrics mỗi 5s)"]
+        Graf["Grafana Dashboard (Light Mode)<br/>(selfhealing-dashboard.json)"]
     end
 
     User --> Ingress
@@ -91,7 +91,7 @@ sequenceDiagram
 ```text
 Cloud-Computing-Project/
 ├── app/                        # Ứng dụng mẫu
-│   ├── main.py                 # /, /health, /ready, /load, /version, /metrics, /fail-health
+│   ├── main.py                 # /, /ui, /api/info, /health, /ready, /load, /version, /metrics, /fail-health
 │   ├── requirements.txt
 │   └── Dockerfile              # multi-stage build, chạy non-root
 ├── k8s/
@@ -101,23 +101,20 @@ Cloud-Computing-Project/
 │   └── experiments/            # cấu hình cố ý sai: liveness quá gắt, memory limit quá thấp, thiếu readiness
 ├── monitoring/
 │   ├── prometheus-values.yaml  # values cho kube-prometheus-stack
-│   ├── servicemonitor.yaml     # scrape /metrics của app
+│   ├── servicemonitor.yaml     # scrape /metrics của app (5s)
 │   └── selfhealing-dashboard.json
 ├── load-test/
 │   ├── steady.js               # tải nền ổn định 20 VUs (baseline, xóa pod, drain, rollout)
 │   └── hpa-spike.js            # tải tăng đột biến CPU để kích hoạt HPA
 ├── scripts/
 │   ├── setup.ps1               # dựng toàn bộ cụm + deploy (chạy 1 lần)
+│   ├── demo.ps1 / demo.sh      # menu 1 phím điều khiển kịch bản trực quan trên TV lớp học
 │   ├── teardown.ps1            # xóa cụm kind
 │   ├── chaos-pod-delete.sh     # xóa pod / drain node
 │   ├── rollout-fail.sh         # phát hành bản lỗi + rollback
-│   ├── collect-metrics.py      # xuất số liệu thô từ Prometheus
+│   ├── collect-metrics.py      # xuất số liệu thô JSON + CSV từ Prometheus
 │   └── plot-results.py         # vẽ biểu đồ từ data/results/
-├── dashboard/                  # Dashboard web trực quan cho demo
-│   ├── server.py               # Flask + SocketIO backend
-│   ├── requirements.txt
-│   ├── templates/index.html
-│   └── static/                 # style.css, app.js
+├── Makefile                    # phím tắt lệnh demo cho Linux/macOS/WSL
 ├── data/results/               # số liệu đo thô dạng JSON và CSV
 ├── docs/
 │   ├── test-plan.md            # bảng kiểm thử + tiêu chí đạt
@@ -137,14 +134,14 @@ Cloud-Computing-Project/
 git clone https://github.com/dzytan/Cloud-Computing-Project.git
 cd Cloud-Computing-Project
 .\scripts\setup.ps1          # dựng cụm + cài hạ tầng + deploy ứng dụng
-python dashboard/server.py   # mở Dashboard web tại http://localhost:5000
+.\scripts\demo.ps1           # mở Menu 1 phím + Live Pod UI (http://localhost/ui) + Grafana (:3000)
 ```
 
 Dọn dẹp khi xong: `.\scripts\teardown.ps1`
 
-**Cách 2 — Từng bước thủ công (Linux / macOS / WSL):**
+**Cách 2 — Linux / macOS / WSL:**
 
-Xem chi tiết trong [`docs/test-plan.md`](docs/test-plan.md).
+Xem các bước lệnh tương đương trong [`scripts/setup.ps1`](scripts/setup.ps1), sau đó chạy `make demo` (hoặc `bash scripts/demo.sh`).
 
 ## Kịch bản thử nghiệm
 
@@ -186,29 +183,32 @@ Ngưỡng dưới đây là đề xuất, nhóm chốt lại trong [`docs/test-p
 
 | Thành phần | Công nghệ | Phiên bản (ghi khi nghiệm thu) |
 |:---|:---|:---|
-| Cụm K8s | kind | `kind version`, `kubectl version` |
-| Ingress | Nginx Ingress Controller | tag đã ghim ở trên |
-| Autoscaling | HPA + Metrics Server | tag đã ghim ở trên |
-| Giám sát | kube-prometheus-stack | `helm list -n monitoring` |
-| Tạo tải | k6 | `k6 version` |
+| Cụm K8s | kind + Kubernetes | `kind v0.24+`, `Kubernetes v1.31+` |
+| Ứng dụng | Python + FastAPI + Uvicorn | `python:3.11-slim`, `fastapi 0.115.6` |
+| Ingress | Nginx Ingress Controller | `controller-v1.12.1` |
+| Autoscaling | HPA (`autoscaling/v2`) + Metrics Server | `v0.7.2` |
+| Giám sát | kube-prometheus-stack (Helm) | `prometheus-community/kube-prometheus-stack` |
+| Quản trị trực quan | Headlamp / K9s | `headlamp/headlamp` (Web UI Light Mode) |
+| Tạo tải | Grafana k6 | `k6 v0.54+` |
 
 ## Bảo mật
 
 - `secret.example.yaml` chỉ chứa giá trị giả, không commit secret thật. Secret thật tạo bằng `kubectl create secret` trước khi apply.
-- Container chạy non-root (`USER` trong Dockerfile, `securityContext.runAsNonRoot: true`).
-- Giới hạn còn lại: Ingress/Grafana chạy HTTP, chưa có TLS/auth (chỉ dùng trong lab cục bộ); image chưa quét lỗ hổng;
-  Secret mới chỉ mã hóa base64.
+- Container chạy non-root (`USER 10001` trong Dockerfile, `securityContext.runAsNonRoot: true`, `allowPrivilegeEscalation: false`).
+- Giới hạn còn lại: Ingress/Grafana chạy HTTP, mật khẩu Grafana đặt mặc định `admin/admin` trong `prometheus-values.yaml` phục vụ lab cục bộ (cần đổi sang Secret khi lên production); image chưa quét lỗ hổng CVE; Secret mặc định của K8s mới chỉ mã hóa base64 (chưa bật KMS encryption at rest).
 
 ## Chi phí
 
 Toàn bộ demo chạy trên cụm kind cục bộ, không phát sinh chi phí cloud.
 Ước tính chi phí triển khai trên AWS EKS và phân tích rightsizing tài nguyên xem tại [`docs/finops-cost-analysis.md`](docs/finops-cost-analysis.md).
 
-## Demo
+## Demo trực quan trên TV tại lớp
 
-- **Dashboard web:** `python dashboard/server.py` → `http://localhost:5000` — bấm nút chạy từng kịch bản, quan sát pods/HPA realtime.
-- **Grafana:** `kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80` → `http://localhost:3000` (admin / prom-operator).
-- Biểu đồ kết quả sau khi chạy thực nghiệm sẽ được xuất vào `docs/results/`.
+- **Menu điều khiển 1 phím bấm:** `.\scripts\demo.ps1` (Windows) hoặc `make demo` / `bash scripts/demo.sh` (Linux/WSL).
+- **Live Pod Traffic Frontend (Light Mode):** `http://localhost/ui` — tự động gọi qua Ingress mỗi 1s, hiển thị trực quan Pod Name, Pod IP, Worker Node, Health và màu sắc phiên bản (`v1` Xanh dương, `v2` Cam).
+- **Headlamp K8s Web UI:** `http://localhost:4466` (bấm phím `[H]` trong menu để tự cài & copy sẵn Token vào Clipboard).
+- **Grafana Dashboard (Light Mode, refresh 5s):** `http://localhost:3000` (`admin` / `admin`) — import file `monitoring/selfhealing-dashboard.json`.
+- Biểu đồ kết quả sau khi chạy thực nghiệm (phím `[7]`) sẽ được xuất vào `data/results/` (JSON + CSV) và `docs/results/` (PNG).
 
 ## Phân công Nhóm
 
