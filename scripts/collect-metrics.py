@@ -82,7 +82,22 @@ def main():
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2, ensure_ascii=False)
 
-    print(f"[+] Đã lưu kết quả đo vào: {output_path}")
+    # Xuất đồng thời ra bảng CSV tổng hợp theo yêu cầu bàn giao đồ án
+    csv_path = os.path.join(os.path.dirname(output_path), "summary_metrics.csv")
+    write_header = not os.path.exists(csv_path)
+    fields = ["timestamp", "scenario"] + list(QUERIES.keys())
+    with open(csv_path, "a", encoding="utf-8") as cf:
+        if write_header:
+            cf.write(",".join(fields) + "\n")
+        row = [timestamp, args.scenario] + [
+            "" if metrics["data"].get(k) is None else str(round(metrics["data"][k], 6))
+            for k in QUERIES.keys()
+        ]
+        cf.write(",".join(row) + "\n")
+
+    print(f"[+] Đã lưu kết quả JSON: {output_path}")
+    print(f"[+] Đã cập nhật bảng CSV: {csv_path}")
 
 if __name__ == "__main__":
     main()
+
