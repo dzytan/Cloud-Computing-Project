@@ -53,6 +53,7 @@ Write-Host "`n[7/7] Deploy ung dung va monitoring..." -ForegroundColor Cyan
 kubectl create secret generic selfhealing-demo-secret --from-literal=API_KEY=production-key --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f k8s/base/
 kubectl apply -f monitoring/servicemonitor.yaml
+kubectl rollout restart deployment/selfhealing-demo 2>$null
 
 Write-Host "`n  Dang doi pods san sang..." -ForegroundColor Yellow
 kubectl wait --for=condition=ready pod -l app=selfhealing-demo --timeout=120s
@@ -64,10 +65,8 @@ Write-Host "=====================================================" -ForegroundCo
 Write-Host ""
 kubectl get pods -o wide
 Write-Host ""
-Write-Host "  Buoc tiep theo:" -ForegroundColor Yellow
-Write-Host "    1. Mo Dashboard:  python dashboard/server.py" -ForegroundColor White
-Write-Host "       Truy cap:     http://localhost:5000" -ForegroundColor White
-Write-Host ""
-Write-Host "    2. Mo Grafana:   kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80" -ForegroundColor White
-Write-Host "       Truy cap:     http://localhost:3000  (admin / prom-operator)" -ForegroundColor White
+Write-Host "  Buoc tiep theo (Demo tren TV tai lop):" -ForegroundColor Yellow
+Write-Host "    Chay Menu Dieu Khien 1 Phim Bam:  .\scripts\demo.ps1" -ForegroundColor White
+Write-Host "    - Live Pod Traffic UI:            http://localhost/ui" -ForegroundColor White
+Write-Host "    - Grafana (admin / admin):        http://localhost:3000" -ForegroundColor White
 Write-Host ""
