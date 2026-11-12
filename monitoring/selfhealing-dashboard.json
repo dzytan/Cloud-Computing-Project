@@ -13,7 +13,7 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "id": 100,
-      "title": "Hệ thống Tự phục hồi & Trạng thái Pod (Self-healing & Pod Status)",
+      "title": "1. Trạng thái Pod & Tài nguyên (Replicas, Restarts, CPU & Memory vs Request/Limit)",
       "type": "row"
     },
     {
@@ -21,20 +21,17 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }]
-          }
+          "custom": { "lineWidth": 2, "fillOpacity": 15 },
+          "min": 0
         }
       },
-      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 1 },
+      "gridPos": { "h": 7, "w": 6, "x": 0, "y": 1 },
       "id": 1,
       "options": {
         "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "single" }
+        "tooltip": { "mode": "multi" }
       },
-      "title": "Active Pod Replicas",
+      "title": "Active vs Desired Replicas",
       "type": "timeseries",
       "targets": [
         {
@@ -43,7 +40,7 @@
         },
         {
           "expr": "kube_deployment_spec_replicas{deployment=\"selfhealing-demo\"}",
-          "legendFormat": "Desired Replicas"
+          "legendFormat": "Desired Replicas (HPA)"
         }
       ]
     },
@@ -51,10 +48,12 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" }
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "min": 0
         }
       },
-      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 1 },
+      "gridPos": { "h": 7, "w": 6, "x": 6, "y": 1 },
       "id": 2,
       "title": "Pod Restarts (Cumulative)",
       "type": "timeseries",
@@ -69,17 +68,55 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "unit": "percent",
+          "custom": { "lineWidth": 2, "fillOpacity": 12 },
+          "min": 0
         }
       },
-      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 1 },
+      "gridPos": { "h": 7, "w": 6, "x": 12, "y": 1 },
       "id": 3,
-      "title": "CPU Utilization (vs Request)",
+      "title": "CPU Usage vs Request/Limit (%)",
       "type": "timeseries",
       "targets": [
         {
           "expr": "sum(rate(container_cpu_usage_seconds_total{container=\"app\"}[1m])) / sum(kube_pod_container_resource_requests{container=\"app\", resource=\"cpu\"}) * 100",
           "legendFormat": "CPU % of Request"
+        },
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container=\"app\"}[1m])) / sum(kube_pod_container_resource_limits{container=\"app\", resource=\"cpu\"}) * 100",
+          "legendFormat": "CPU % of Limit"
+        },
+        {
+          "expr": "vector(50)",
+          "legendFormat": "HPA Target (50%)"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "lineWidth": 2, "fillOpacity": 12 },
+          "min": 0
+        }
+      },
+      "gridPos": { "h": 7, "w": 6, "x": 18, "y": 1 },
+      "id": 7,
+      "title": "Memory Usage vs Request/Limit",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(container_memory_working_set_bytes{container=\"app\"})",
+          "legendFormat": "Working Set RAM"
+        },
+        {
+          "expr": "sum(kube_pod_container_resource_requests{container=\"app\", resource=\"memory\"})",
+          "legendFormat": "Total Memory Request"
+        },
+        {
+          "expr": "sum(kube_pod_container_resource_limits{container=\"app\", resource=\"memory\"})",
+          "legendFormat": "Total Memory Limit"
         }
       ]
     },
@@ -87,24 +124,31 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 },
       "id": 101,
-      "title": "Hiệu năng Lưu lượng & Trải nghiệm Client (Traffic & Performance)",
+      "title": "2. Chỉ số Chất lượng Dịch vụ SLO (Availability %, Latency p95 & Error Rate)",
       "type": "row"
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps"
+          "unit": "percent",
+          "custom": { "lineWidth": 2, "fillOpacity": 15 },
+          "max": 100,
+          "min": 90
         }
       },
       "gridPos": { "h": 7, "w": 8, "x": 0, "y": 9 },
-      "id": 4,
-      "title": "Request Rate (req/s)",
+      "id": 8,
+      "title": "Service Availability (%) vs SLO 99%",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum(rate(http_requests_total[1m])) by (status)",
-          "legendFormat": "Status {{status}}"
+          "expr": "(1 - ((sum(rate(http_requests_total{status=~\"5..\"}[1m])) or vector(0)) / clamp_min(sum(rate(http_requests_total[1m])), 0.001))) * 100",
+          "legendFormat": "Availability (%)"
+        },
+        {
+          "expr": "vector(99)",
+          "legendFormat": "SLO Target (99%)"
         }
       ]
     },
@@ -112,21 +156,23 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "s",
+          "custom": { "lineWidth": 2, "fillOpacity": 12 },
+          "min": 0
         }
       },
       "gridPos": { "h": 7, "w": 8, "x": 8, "y": 9 },
       "id": 5,
-      "title": "Latency p95 & p99",
+      "title": "HTTP Latency p95 & p99",
       "type": "timeseries",
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le))",
-          "legendFormat": "p95"
+          "legendFormat": "p95 Latency"
         },
         {
           "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[1m])) by (le))",
-          "legendFormat": "p99"
+          "legendFormat": "p99 Latency"
         }
       ]
     },
@@ -134,32 +180,37 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "unit": "reqps",
+          "custom": { "lineWidth": 2, "fillOpacity": 12 },
+          "min": 0
         }
       },
       "gridPos": { "h": 7, "w": 8, "x": 16, "y": 9 },
-      "id": 6,
-      "title": "Error Rate (5xx %)",
+      "id": 4,
+      "title": "Throughput & 5xx Error Rate (req/s)",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "(sum(rate(http_requests_total{status=~\"5..\"}[1m])) or vector(0)) / (sum(rate(http_requests_total[1m])) > 0) * 100",
-          "legendFormat": "5xx Error %"
+          "expr": "sum(rate(http_requests_total{status=~\"2..\"}[1m])) or vector(0)",
+          "legendFormat": "2xx Success (req/s)"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[1m])) or vector(0)",
+          "legendFormat": "5xx Error (req/s)"
         }
       ]
     }
   ],
   "refresh": "5s",
   "schemaVersion": 38,
-  "style": "dark",
-  "tags": ["kubernetes", "self-healing", "k6"],
+  "style": "light",
+  "tags": ["kubernetes", "self-healing", "k6", "topic-26"],
   "time": {
     "from": "now-15m",
     "to": "now"
   },
   "timezone": "browser",
-  "title": "Kubernetes Self-Healing & Autoscaling Dashboard",
+  "title": "Topic 26 - Kubernetes Self-Healing, Autoscaling & Zero-Downtime",
   "uid": "selfhealing-demo-dashboard",
-  "version": 1
+  "version": 2
 }
-

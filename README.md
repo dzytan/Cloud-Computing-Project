@@ -44,8 +44,8 @@ flowchart TB
 
     subgraph ObservabilityLayer["Tầng Giám sát & Quan sát (Observability)"]
         SM["ServiceMonitor"]
-        Prom["Prometheus Server<br/>(Scrape /metrics mỗi 10s)"]
-        Graf["Grafana Dashboard<br/>(selfhealing-dashboard.json)"]
+        Prom["Prometheus Server<br/>(Scrape /metrics mỗi 5s)"]
+        Graf["Grafana Dashboard (Light Mode)<br/>(selfhealing-dashboard.json)"]
     end
 
     User --> Ingress
@@ -91,7 +91,7 @@ sequenceDiagram
 ```text
 Cloud-Computing-Project/
 ├── app/                        # Ứng dụng mẫu
-│   ├── main.py                 # /, /health, /ready, /load, /version, /metrics, /fail-health
+│   ├── main.py                 # /, /ui, /api/info, /health, /ready, /load, /version, /metrics, /fail-health
 │   ├── requirements.txt
 │   └── Dockerfile              # multi-stage build, chạy non-root
 ├── k8s/
@@ -101,108 +101,47 @@ Cloud-Computing-Project/
 │   └── experiments/            # cấu hình cố ý sai: liveness quá gắt, memory limit quá thấp, thiếu readiness
 ├── monitoring/
 │   ├── prometheus-values.yaml  # values cho kube-prometheus-stack
-│   ├── servicemonitor.yaml     # scrape /metrics của app
+│   ├── servicemonitor.yaml     # scrape /metrics của app (5s)
 │   └── selfhealing-dashboard.json
 ├── load-test/
 │   ├── steady.js               # tải nền ổn định 20 VUs (baseline, xóa pod, drain, rollout)
 │   └── hpa-spike.js            # tải tăng đột biến CPU để kích hoạt HPA
 ├── scripts/
+│   ├── setup.ps1               # dựng toàn bộ cụm + deploy (chạy 1 lần)
+│   ├── demo.ps1 / demo.sh      # menu 1 phím điều khiển kịch bản trực quan trên TV lớp học
+│   ├── teardown.ps1            # xóa cụm kind
 │   ├── chaos-pod-delete.sh     # xóa pod / drain node
 │   ├── rollout-fail.sh         # phát hành bản lỗi + rollback
-│   ├── collect-metrics.py      # xuất số liệu thô từ Prometheus
-│   ├── plot-results.py         # vẽ biểu đồ từ data/results/
-│   ├── cleanup.sh              # script dọn dẹp cụm (Linux/macOS)
-│   └── cleanup.ps1             # script dọn dẹp cụm (Windows PowerShell)
+│   ├── collect-metrics.py      # xuất số liệu thô JSON + CSV từ Prometheus
+│   └── plot-results.py         # vẽ biểu đồ từ data/results/
+├── Makefile                    # phím tắt lệnh demo cho Linux/macOS/WSL
 ├── data/results/               # số liệu đo thô dạng JSON và CSV
-│   ├── baseline.json
-│   ├── delete-pod.json
-│   ├── fail-health.json
-│   ├── drain-node.json
-│   ├── rollout-v2.json
-│   ├── rollout-fail.json
-│   ├── hpa-spike.json
-│   └── summary_metrics.csv
 ├── docs/
-│   ├── test-plan.md            # bảng kiểm thử + tiêu chí đạt chuẩn khoa học
-│   ├── finops-cost-analysis.md # báo cáo FinOps & tối ưu chi phí Cloud theo Chương 5
-│   ├── demo-script.md          # kịch bản phân vai quay video demo 10 phút
-│   ├── reports/                # báo cáo đồ án (Word docx)
-│   └── results/                # 5 ảnh biểu đồ kết quả (latency, error, avail, restarts, replicas)
+│   ├── test-plan.md            # bảng kiểm thử + tiêu chí đạt
+│   ├── finops-cost-analysis.md # báo cáo FinOps & tối ưu chi phí Cloud
+│   ├── reports/                # báo cáo đồ án
+│   └── results/                # biểu đồ kết quả
 └── README.md
 ```
 
 ## Run guide
 
-**Yêu cầu:** Docker, `kubectl`, `kind`, `helm`, `k6`, Python 3.10+. Máy nên có tối thiểu 4 CPU / 8 GB RAM.
+**Yêu cầu:** Docker Desktop, `kubectl`, `kind`, `helm`, `k6`, Python 3.10+.
 
-**1. Dựng cụm**
+**Cách 1 — Script tự động (khuyên dùng, Windows PowerShell):**
 
-```bash
+```powershell
 git clone https://github.com/dzytan/Cloud-Computing-Project.git
 cd Cloud-Computing-Project
-kind create cluster --name selfhealing-demo --config k8s/kind-config.yaml
+.\scripts\setup.ps1          # dựng cụm + cài hạ tầng + deploy ứng dụng
+.\scripts\demo.ps1           # mở Menu 1 phím + Live Pod UI (http://localhost/ui) + Grafana (:3000)
 ```
 
-`kind-config.yaml` cần label `ingress-ready=true` trên control-plane và `extraPortMappings` 80/443,
-nếu không Ingress sẽ không lên. Dùng k3d/minikube được nhưng phải có ít nhất 2 worker để thử drain node.
+Dọn dẹp khi xong: `.\scripts\teardown.ps1`
 
-**2. Cài Metrics Server và Ingress** (ghim phiên bản, không dùng `latest`/`main`)
+**Cách 2 — Linux / macOS / WSL:**
 
-```bash
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.7.2/components.yaml
-kubectl patch deployment metrics-server -n kube-system --type='json' \
-  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
-
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.1/deploy/static/provider/kind/deploy.yaml
-kubectl wait --namespace ingress-nginx --for=condition=ready pod \
-  --selector=app.kubernetes.io/component=controller --timeout=120s
-```
-
-**3. Cài Prometheus/Grafana**
-
-```bash
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm install monitoring prometheus-community/kube-prometheus-stack \
-  -n monitoring --create-namespace -f monitoring/prometheus-values.yaml
-```
-
-**4. Build 3 image và nạp vào cụm** (`v1`, `v2` tốt, `v2-bad` cố ý lỗi để thử rollback)
-
-```bash
-cd app
-docker build -t selfhealing-demo:v1 .
-docker build -t selfhealing-demo:v2 --build-arg APP_VERSION=v2 .
-docker build -t selfhealing-demo:v2-bad --build-arg APP_VERSION=v2-bad --build-arg BROKEN=true .
-cd ..
-for t in v1 v2 v2-bad; do kind load docker-image selfhealing-demo:$t --name selfhealing-demo; done
-```
-
-**5. Tạo Secret thật rồi mới apply manifest**
-
-```bash
-kubectl create secret generic selfhealing-demo-secret \
-  --from-literal=API_KEY=<giá-trị-thật> --dry-run=client -o yaml | kubectl apply -f -
-
-kubectl apply -f k8s/base/
-kubectl apply -f monitoring/servicemonitor.yaml
-kubectl get pods -o wide        # các replica phải nằm ở các node khác nhau
-```
-
-**6. Kiểm tra qua Ingress**
-
-```bash
-curl -H "Host: selfhealing.local" http://localhost/version
-kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80    # Grafana
-```
-
-**7. Dọn dẹp**
-
-```bash
-kind delete cluster --name selfhealing-demo
-```
-
-> Các hành vi nêu trong README là **kỳ vọng**. Chỉ ghi là kết quả trong báo cáo sau khi đã chạy thật
-> và có số liệu/log trong `data/results` và `docs/results`.
+Xem các bước lệnh tương đương trong [`scripts/setup.ps1`](scripts/setup.ps1), sau đó chạy `make demo` (hoặc `bash scripts/demo.sh`).
 
 ## Kịch bản thử nghiệm
 
@@ -244,33 +183,32 @@ Ngưỡng dưới đây là đề xuất, nhóm chốt lại trong [`docs/test-p
 
 | Thành phần | Công nghệ | Phiên bản (ghi khi nghiệm thu) |
 |:---|:---|:---|
-| Cụm K8s | kind | `kind version`, `kubectl version` |
-| Ingress | Nginx Ingress Controller | tag đã ghim ở trên |
-| Autoscaling | HPA + Metrics Server | tag đã ghim ở trên |
-| Giám sát | kube-prometheus-stack | `helm list -n monitoring` |
-| Tạo tải | k6 | `k6 version` |
+| Cụm K8s | kind + Kubernetes | `kind v0.24+`, `Kubernetes v1.31+` |
+| Ứng dụng | Python + FastAPI + Uvicorn | `python:3.11-slim`, `fastapi 0.115.6` |
+| Ingress | Nginx Ingress Controller | `controller-v1.12.1` |
+| Autoscaling | HPA (`autoscaling/v2`) + Metrics Server | `v0.7.2` |
+| Giám sát | kube-prometheus-stack (Helm) | `prometheus-community/kube-prometheus-stack` |
+| Quản trị trực quan | Headlamp / K9s | `headlamp/headlamp` (Web UI Light Mode) |
+| Tạo tải | Grafana k6 | `k6 v0.54+` |
 
 ## Bảo mật
 
 - `secret.example.yaml` chỉ chứa giá trị giả, không commit secret thật. Secret thật tạo bằng `kubectl create secret` trước khi apply.
-- Container chạy non-root (`USER` trong Dockerfile, `securityContext.runAsNonRoot: true`).
-- Giới hạn còn lại: Ingress/Grafana chạy HTTP, chưa có TLS/auth (chỉ dùng trong lab cục bộ); image chưa quét lỗ hổng;
-  Secret mới chỉ mã hóa base64.
+- Container chạy non-root (`USER 10001` trong Dockerfile, `securityContext.runAsNonRoot: true`, `allowPrivilegeEscalation: false`).
+- Giới hạn còn lại: Ingress/Grafana chạy HTTP, mật khẩu Grafana đặt mặc định `admin/admin` trong `prometheus-values.yaml` phục vụ lab cục bộ (cần đổi sang Secret khi lên production); image chưa quét lỗ hổng CVE; Secret mặc định của K8s mới chỉ mã hóa base64 (chưa bật KMS encryption at rest).
 
-## Quản trị Chi phí (FinOps) & Rightsizing
+## Chi phí
 
-- **Môi trường thử nghiệm:** Toàn bộ demo chạy trên cụm kind cục bộ, **không phát sinh chi phí cloud**.
-- **Mô hình kinh tế đám mây (Public Cloud):** Nhóm đã thực hiện nghiên cứu chuyên sâu về **FinOps & Resource Rightsizing** theo đúng tinh thần **Chương 5 (Mục 5.8: Slide 96 - 102)**.
-- Chi tiết bảng phân tích ước tính chi phí trên AWS EKS, chiến lược Spot Instances, Rightsizing CPU/RAM, Cost Allocation Tags và Unit Economics xem tại:
-  👉 **[`docs/finops-cost-analysis.md`](docs/finops-cost-analysis.md)**
+Toàn bộ demo chạy trên cụm kind cục bộ, không phát sinh chi phí cloud.
+Ước tính chi phí triển khai trên AWS EKS và phân tích rightsizing tài nguyên xem tại [`docs/finops-cost-analysis.md`](docs/finops-cost-analysis.md).
 
-## Video Demo & Kịch bản Thuyết trình
+## Demo trực quan trên TV tại lớp
 
-- Thời lượng chuẩn: 10 phút (video) / 15-20 phút (vấn đáp trực tiếp).
-- Kịch bản chi tiết từng phút, phân công rõ vai trò SV1, SV2, SV3 và danh mục lệnh checklist xem tại:
-  👉 **[`docs/demo-script.md`](docs/demo-script.md)**
-- 5 biểu đồ phân tích kết quả đo lường đã được tự động xuất bản tại:
-  👉 **[`docs/results/`](docs/results/)**
+- **Menu điều khiển 1 phím bấm:** `.\scripts\demo.ps1` (Windows) hoặc `make demo` / `bash scripts/demo.sh` (Linux/WSL).
+- **Live Pod Traffic Frontend (Light Mode):** `http://localhost/ui` — tự động gọi qua Ingress mỗi 1s, hiển thị trực quan Pod Name, Pod IP, Worker Node, Health và màu sắc phiên bản (`v1` Xanh dương, `v2` Cam).
+- **Headlamp K8s Web UI:** `http://localhost:4466` (bấm phím `[H]` trong menu để tự cài & copy sẵn Token vào Clipboard).
+- **Grafana Dashboard (Light Mode, refresh 5s):** `http://localhost:3000` (`admin` / `admin`) — import file `monitoring/selfhealing-dashboard.json`.
+- Biểu đồ kết quả sau khi chạy thực nghiệm (phím `[7]`) sẽ được xuất vào `data/results/` (JSON + CSV) và `docs/results/` (PNG).
 
 ## Phân công Nhóm
 
