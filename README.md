@@ -202,7 +202,7 @@ Ngưỡng dưới đây là đề xuất, nhóm chốt lại trong [`docs/test-p
 Toàn bộ demo chạy trên cụm kind cục bộ, không phát sinh chi phí cloud.
 Ước tính chi phí triển khai trên AWS EKS và phân tích rightsizing tài nguyên xem tại [`docs/finops-cost-analysis.md`](docs/finops-cost-analysis.md).
 
-## Demo trực quan trên TV tại lớp
+## Demo trực quan
 
 - **Menu điều khiển 1 phím bấm:** `.\scripts\demo.ps1` (Windows) hoặc `make demo` / `bash scripts/demo.sh` (Linux/WSL).
 - **Live Pod Traffic Frontend (Light Mode):** `http://localhost/ui` — tự động gọi qua Ingress mỗi 1s, hiển thị trực quan Pod Name, Pod IP, Worker Node, Health và màu sắc phiên bản (`v1` Xanh dương, `v2` Cam).
