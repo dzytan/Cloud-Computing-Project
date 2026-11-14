@@ -19,8 +19,8 @@ prometheus:
         cpu: 100m
         memory: 256Mi
       limits:
-        cpu: 500m
-        memory: 512Mi
+        cpu: 2000m
+        memory: 1024Mi
 
 alertmanager:
   enabled: false
